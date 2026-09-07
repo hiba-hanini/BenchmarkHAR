@@ -1,0 +1,159 @@
+name: pamap2
+raw_path: data/raw/pamap2/Protocol/
+out_dir: data/processed/pamap2/
+out_dir_biopm: data/processed/pamap2_biopm/
+
+
+label_cols:
+  - activity_id
+
+label_to_predict : "activity_id"
+
+# PAMAP2 activity IDs are already the canonical benchmark classes.
+canonical_label_values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+unknown_label_policy: raise
+
+unknown_labels:
+  - "0"
+
+columns:
+  timestamp: timestamp
+  activity_id: activity_id
+  hand:
+    accel: [imu_hand_accel_16_x, imu_hand_accel_16_y, imu_hand_accel_16_z]
+    gyro: [imu_hand_gyro_x, imu_hand_gyro_y, imu_hand_gyro_z]
+    temperature : imu_hand_temperature
+  chest:
+    accel: [imu_chest_accel_16_x, imu_chest_accel_16_y, imu_chest_accel_16_z]
+    gyro: [imu_chest_gyro_x, imu_chest_gyro_y, imu_chest_gyro_z]
+    temperature : imu_chest_temperature
+  ankle:
+    accel: [imu_ankle_accel_16_x, imu_ankle_accel_16_y, imu_ankle_accel_16_z]
+    gyro: [imu_ankle_gyro_x, imu_ankle_gyro_y, imu_ankle_gyro_z]
+    temperature : imu_ankle_temperature
+
+acc_raw : [imu_hand_accel_16_x, imu_hand_accel_16_y, imu_hand_accel_16_z]
+
+
+# Full column order in PAMAP2 .dat files
+raw_columns:
+  - timestamp
+  - activity_id
+  - heart_rate
+
+  # Hand sensor
+  - imu_hand_temperature
+  - imu_hand_accel_16_x
+  - imu_hand_accel_16_y
+  - imu_hand_accel_16_z
+  - imu_hand_accel_6_x
+  - imu_hand_accel_6_y
+  - imu_hand_accel_6_z
+  - imu_hand_gyro_x
+  - imu_hand_gyro_y
+  - imu_hand_gyro_z
+  - imu_hand_magnet_x
+  - imu_hand_magnet_y
+  - imu_hand_magnet_z
+  - imu_hand_orientation_1
+  - imu_hand_orientation_2
+  - imu_hand_orientation_3
+  - imu_hand_orientation_4
+
+  # Chest sensor
+  - imu_chest_temperature
+  - imu_chest_accel_16_x
+  - imu_chest_accel_16_y
+  - imu_chest_accel_16_z
+  - imu_chest_accel_6_x
+  - imu_chest_accel_6_y
+  - imu_chest_accel_6_z
+  - imu_chest_gyro_x
+  - imu_chest_gyro_y
+  - imu_chest_gyro_z
+  - imu_chest_magnet_x
+  - imu_chest_magnet_y
+  - imu_chest_magnet_z
+  - imu_chest_orientation_1
+  - imu_chest_orientation_2
+  - imu_chest_orientation_3
+  - imu_chest_orientation_4
+
+  # Ankle sensor
+  - imu_ankle_temperature
+  - imu_ankle_accel_16_x
+  - imu_ankle_accel_16_y
+  - imu_ankle_accel_16_z
+  - imu_ankle_accel_6_x
+  - imu_ankle_accel_6_y
+  - imu_ankle_accel_6_z
+  - imu_ankle_gyro_x
+  - imu_ankle_gyro_y
+  - imu_ankle_gyro_z
+  - imu_ankle_magnet_x
+  - imu_ankle_magnet_y
+  - imu_ankle_magnet_z
+  - imu_ankle_orientation_1
+  - imu_ankle_orientation_2
+  - imu_ankle_orientation_3
+  - imu_ankle_orientation_4
+
+
+
+cutoff_noise : 20
+cutoff_gravity : 0.3
+
+
+
+window_size: 512
+step_size: 256
+
+
+out_dir: data/processed/pamap2/
+
+
+# Raw sensor channels
+channels:
+
+  hand_accel:
+    x: imu_hand_accel_16_x
+    y: imu_hand_accel_16_y
+    z: imu_hand_accel_16_z
+
+  chest_accel:
+    x: imu_chest_accel_16_x
+    y: imu_chest_accel_16_y
+    z: imu_chest_accel_16_z
+
+  ankle_accel:
+    x: imu_ankle_accel_16_x
+    y: imu_ankle_accel_16_y
+    z: imu_ankle_accel_16_z
+
+
+# Signals to filter
+filtering:
+  sensors:
+    - hand_accel
+    - chest_accel
+    - ankle_accel
+
+cutoff_noise: 20
+cutoff_gravity: 0.5
+order: 6
+
+
+
+
+
+ffill_limit: 600
+
+
+sampling_rate: 100
+
+biopm:
+  target_fs: 100
+  ws_samples : 512
+
+  normalize_size: 32
+  pad_size: 192

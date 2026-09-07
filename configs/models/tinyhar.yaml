@@ -1,0 +1,5 @@
+name : tinyhar
+params :
+  epochs: 5
+  batch_size: 64
+  verbose: 0

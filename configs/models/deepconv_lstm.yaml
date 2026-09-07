@@ -1,0 +1,5 @@
+name : deepconv_lstm
+
+params:
+  epochs: 5
+  batch_size: 64

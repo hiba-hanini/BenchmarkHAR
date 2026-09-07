@@ -1,0 +1,145 @@
+name: capture24
+raw_path: data/raw/capture24/
+meta_path: data/raw/capture24/metadata.csv
+dict_path: data/raw/capture24/annotation-label-dictionary.csv
+out_dir_biopm : data/processed/capture24_biopm/
+
+out_dir: data/processed/capture24/
+
+
+label_cols:
+  - "label:WillettsSpecific2018"
+  - "label:WillettsMET2018"
+  - "label:DohertySpecific2018"
+  - "label:Willetts2018"
+  - "label:Doherty2018"
+  - "label:Walmsley2020"
+
+label_to_predict : "label:Willetts2018"
+unknown_label_policy: raise
+
+columns:
+  timestamp : timestamp
+  wrist:
+    accel: [x, y, z]
+
+selected_sensor : wrist
+
+acc_raw : [x, y, z]
+
+age_mapping:
+  "18-29": 0
+  "30-37": 1
+  "38-52": 2
+  "53+": 3
+
+
+dict_cols:
+  - annotation
+  - "label:WillettsSpecific2018"
+  - "label:WillettsMET2018"
+  - "label:DohertySpecific2018"
+  - "label:Willetts2018"
+  - "label:Doherty2018"
+  - "label:Walmsley2020"
+
+max_missing_pct: 50 # skip subject if +X% missing label
+
+
+sampling_rate: 100
+target_fs_biopm : 20
+
+
+cutoff_noise : 20
+cutoff_gravity : 0.3
+
+ffill_limit: 600
+
+# preprocessing / windowing
+window_size: 512 # ~5.12s - 100Hz
+step_size: 256 # overlap 50%
+
+unknown_ratio_max: 0.2 # if you want to change it windowing.py 
+
+already_windowed: false
+
+tabular_cols : ['age_encoded', 'sex_encoded']
+
+
+
+primary_label: "label:Willetts2018" # to use if the user doesn't mention which label to use
+
+
+
+
+label_mapping:
+  "label:WillettsSpecific2018":
+    bicycling: cycling
+    household-chores: household_chores
+    manual-work: other
+    mixed-activity: other
+    sitting: sitting
+    sleep: sleeping
+    sports: other
+    standing: standing
+    vehicle: other
+    walking: walking
+
+  "label:Willetts2018":
+    bicycling: cycling
+    mixed: other
+    sit-stand: sitting
+    sleep: sleeping
+    vehicle: other
+    walking: walking
+
+  "label:Doherty2018":
+    moderate: other
+    sedentary: sitting
+    sleep: sleeping
+    tasks-light: household_chores
+    walking: walking
+
+  "label:Walmsley2020":
+    light: other
+    moderate-vigorous: other
+    sedentary: sitting
+    sleep: sleeping
+
+  "label:WillettsMET2018":
+    bicycling: cycling
+    gym: other
+    "sitstand+activity": sitting
+    "sitstand+lowactivity": sitting
+    sitting: sitting
+    sleep: sleeping
+    sports: other
+    standing: standing
+    vehicle: other
+    walking: walking
+    "walking+activity": walking
+
+  "label:DohertySpecific2018":
+    bicycling: cycling
+    sedentary-non-screen: sitting
+    sedentary-screen: sitting
+    sleep: sleeping
+    sport-interrupted: other
+    sports-continuous: other
+    tasks-light: household_chores
+    tasks-moderate: household_chores
+    vehicle: other
+    walking: walking
+
+
+
+biopm:
+  target_fs: 20
+  ws_samples : 512
+
+  normalize_size: 32
+  pad_size: 192
+
+
+
+

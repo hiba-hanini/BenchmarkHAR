@@ -1,0 +1,5 @@
+name : biopm
+
+params :
+  masking_rate: 0.50
+  batch_size : 32

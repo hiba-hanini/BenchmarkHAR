@@ -1,0 +1,11 @@
+name : logistic_regression
+
+params : 
+  C: 1
+  solver : "lbfgs"
+  max_iter : 1000
+
+cv:
+    loso_threshold: 10  # Nb de sujets max pour utiliser LOSO
+    n_splits: 5         # Nb de folds pour GroupShuffleSplit
+    test_size: 0.2      # Taille du test set pour GroupShuffleSplit

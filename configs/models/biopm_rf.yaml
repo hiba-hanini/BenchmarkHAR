@@ -1,0 +1,10 @@
+name: biopm_rf
+
+params:
+  masking_rate: 0.5
+  batch_size: 32
+
+cv:
+  loso_threshold: 10
+  n_splits: 5
+  test_size: 0.2

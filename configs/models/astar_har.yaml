@@ -1,0 +1,5 @@
+
+name: astar_har
+params:
+  epochs: 30
+  batch_size: 64
