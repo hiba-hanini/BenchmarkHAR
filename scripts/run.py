@@ -71,6 +71,14 @@ def preprocessing_already_done(data_config, model=None):
     return any(out_dir.glob("*.npz"))
 
 
+def ensure_statistical_features(dataset, data_config, max_subjects=None):
+    features_path = Path(f"data/features/{dataset}_features_all.pkl")
+    if not features_path.exists():
+        print(f"--- Feature Extraction : {dataset} ---")
+        from src.features.run_feature_extraction import run_feature_extraction
+        run_feature_extraction(dataset, data_config, max_subjects=max_subjects)
+
+
 def main():
     
     parser = argparse.ArgumentParser(description="Benchmark HAR -generic pipeline ")
@@ -211,6 +219,8 @@ def main():
                 run_biopm_rf(args.dataset, data_config, model_config, max_subjects=args.max_subjects,
                              seed=seed, deterministic=deterministic, experiment_id=experiment_id, resolved_config=resolved_config)
         elif args.model in DL_MODELS :
+            if args.model == "dnn":
+                ensure_statistical_features(args.dataset, data_config, args.max_subjects)
             from src.models.run_model_dl import run_model_dl
             run_model_dl(args.dataset, data_config, args.model, model_config, max_subjects=args.max_subjects,
                          seed=seed, deterministic=deterministic, experiment_id=experiment_id, resolved_config=resolved_config)
@@ -229,6 +239,8 @@ def main():
             run_model_ml(args.dataset, data_config, args.model, model_config, max_subjects=args.max_subjects,
                          seed=seed, deterministic=deterministic, experiment_id=experiment_id, resolved_config=resolved_config)
         elif args.model in DL_MODELS:
+            if args.model == "dnn":
+                ensure_statistical_features(args.dataset, data_config, args.max_subjects)
             from src.models.run_model_dl import run_model_dl
             run_model_dl(args.dataset, data_config, args.model, model_config, max_subjects=args.max_subjects,
                          seed=seed, deterministic=deterministic, experiment_id=experiment_id, resolved_config=resolved_config)

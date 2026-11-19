@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 import pandas as pd
+from src.utils.evaluation import compute_pooled_metrics
 
 ALL_MODELS = [
     "random_forest", "logistic_regression", "cnn", "lstm", "dnn", "rnn",
@@ -72,7 +73,17 @@ def aggregate_results(dataset_filter=None):
         n_folds = len(df)
         cv_strategy = df["cv_strategy"].iloc[0] if "cv_strategy" in df.columns and not df.empty else "N/A"
 
-        summary_data.append({
+        f1_pooled = None
+        if "y_true" in df.columns and "y_pred" in df.columns and cv_strategy == "LOSO":
+            try:
+                pooled = compute_pooled_metrics(
+                    df["y_true"].tolist(), df["y_pred"].tolist(), cv_strategy="LOSO"
+                )
+                f1_pooled = pooled["f1_macro_pooled"]
+            except Exception:
+                f1_pooled = None
+
+        summary_row = {
             "dataset": dataset_name,
             "model": model_name,
             "f1_macro_mean": f1_mean,
@@ -81,7 +92,11 @@ def aggregate_results(dataset_filter=None):
             "accuracy_std": acc_std,
             "n_folds": n_folds,
             "cv_strategy": cv_strategy,
-        })
+        }
+        if f1_pooled is not None:
+            summary_row["f1_macro_pooled"] = f1_pooled
+
+        summary_data.append(summary_row)
 
     if not summary_data:
         print("No data to aggregate with the current filter.")

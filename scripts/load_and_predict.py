@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import f1_score, accuracy_score
 
+from src.utils.evaluation import compute_fold_metrics
+
 from src.models.registry import get_model_class
 from src.utils.load_windows import _load_all_windows
 from src.utils.cv import get_cv_splitter
@@ -106,15 +108,26 @@ def load_and_predict(data_name, config_data, model_name, config_model, fold_inde
     y_test_decoded = le.inverse_transform(y_test)
     y_pred_decoded = le.inverse_transform(y_pred)
 
-    f1 = f1_score(y_test, y_pred, average="macro")
-    acc = accuracy_score(y_test, y_pred)
+    metrics = compute_fold_metrics(
+        y_test, y_pred,
+        canonical_classes=list(range(len(le.classes_))),
+        zero_division=0,
+    )
+    f1 = metrics["f1_macro"]
+    acc = metrics["accuracy"]
 
     print(f"[RELOAD CHECK] {data_name} | {model_name} | fold_index={fold_index}")
     print(f"  n_test = {len(X_test)}")
     print(f"  F1 Macro = {f1:.4f} | Accuracy = {acc:.4f}")
 
-
-    return {"f1_macro": f1, "accuracy": acc, "y_true": y_test_decoded, "y_pred": y_pred_decoded}
+    return {
+        "f1_macro": f1,
+        "accuracy": acc,
+        "present_classes": metrics["present_classes"],
+        "f1_macro_canonical": metrics.get("f1_macro_canonical"),
+        "y_true": y_test_decoded,
+        "y_pred": y_pred_decoded,
+    }
 
 
 if __name__ == "__main__":

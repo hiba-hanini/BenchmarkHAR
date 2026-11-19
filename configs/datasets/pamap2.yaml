@@ -9,8 +9,13 @@ label_cols:
 
 label_to_predict : "activity_id"
 
-# PAMAP2 activity IDs are already the canonical benchmark classes.
-canonical_label_values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+# PAMAP2 activity IDs for the Protocol collection.
+# Exactly 12 standard activities are defined in the Protocol files (subject101-108):
+# 1: lying, 2: sitting, 3: standing, 4: walking, 5: running, 6: cycling,
+# 7: Nordic walking, 12: ascending stairs, 13: descending stairs,
+# 16: vacuum cleaning, 17: ironing, 24: rope jumping.
+# Label 0 represents transient/unrecorded activities and is excluded.
+canonical_label_values: [1, 2, 3, 4, 5, 6, 7, 12, 13, 16, 17, 24]
 unknown_label_policy: raise
 
 unknown_labels:
@@ -100,16 +105,9 @@ raw_columns:
 
 
 
-cutoff_noise : 20
-cutoff_gravity : 0.3
-
-
-
 window_size: 512
 step_size: 256
 
-
-out_dir: data/processed/pamap2/
 
 
 # Raw sensor channels

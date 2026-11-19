@@ -9,6 +9,8 @@ from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import f1_score, accuracy_score
 
+from src.utils.evaluation import compute_fold_metrics
+
 from src.utils.cv import get_cv_splitter
 from src.utils.reproducibility import (
     DEFAULT_SEED,
@@ -49,7 +51,7 @@ def _inner_C_search(X_train: np.ndarray, y_train: np.ndarray,
     for C in C_grid:
         try:
             clf = _fit_logreg(Xtr, y_train[tr], C, seed)
-            f1 = f1_score(y_train[va], clf.predict(Xva), average="macro")
+            f1 = f1_score(y_train[va], clf.predict(Xva), average="macro", zero_division=0)
             if f1 > best_f1:
                 best_f1, best_C = f1, C
         except Exception:
@@ -181,6 +183,12 @@ def run_biopm(data_name, config_data, config_model, max_subjects=None,
             print(f"  [FIT] Saved model to {model_path} and scaler to {scaler_path}")
 
         y_pred = clf.predict(X_test_scaled)
+
+        metrics = compute_fold_metrics(
+            y_test, y_pred,
+            canonical_classes=label_metadata["class_ids"],
+            zero_division=0,
+        )
         
         fold_result = {
             "fold_index": i,
@@ -192,8 +200,10 @@ def run_biopm(data_name, config_data, config_model, max_subjects=None,
             "n_test": len(X_test),
             "y_true": y_test.tolist(),
             "y_pred": y_pred.tolist(),
-            "f1_macro": f1_score(y_test, y_pred, average="macro"),
-            "accuracy": accuracy_score(y_test, y_pred),
+            "f1_macro": metrics["f1_macro"],
+            "accuracy": metrics["accuracy"],
+            "present_classes": metrics["present_classes"],
+            "f1_macro_canonical": metrics.get("f1_macro_canonical"),
             "selected_C": best_C,
             "training_time_sec": training_time_sec,
         }

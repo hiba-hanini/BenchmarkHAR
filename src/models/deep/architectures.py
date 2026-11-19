@@ -13,6 +13,7 @@ from tensorflow.keras.layers import (
     LeakyReLU,
     AveragePooling2D,
     MaxPooling2D,
+    SimpleRNN,
 )
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
@@ -20,6 +21,7 @@ from tensorflow.keras.layers import Reshape
 import numpy as np
 
 from sklearn.preprocessing import StandardScaler
+
 
 
 def build_cnn(input_shape, n_classes):
@@ -51,9 +53,19 @@ def build_cnn(input_shape, n_classes):
 def build_dnn(input_shape, n_classes):
     i = Input(shape=input_shape)
     x = Flatten()(i)
-    x = Dense(128, activation='relu')(x)
-    x = Dense(256, activation='relu')(x)
-    x = Dense(128, activation='relu')(x)
+
+    x = Dense(256, activation='relu', kernel_regularizer=regularizers.l2(1e-4))(x)
+    x = BatchNormalization()(x)
+    x = Dropout(0.2)(x)
+    
+    x = Dense(128, activation='relu', kernel_regularizer=regularizers.l2(1e-4))(x)
+    x = BatchNormalization()(x)
+    x = Dropout(0.2)(x)
+    
+    x = Dense(64, activation='relu', kernel_regularizer=regularizers.l2(1e-4))(x)
+    x = BatchNormalization()(x)
+    x = Dropout(0.2)(x)
+
     x = Dense(n_classes, activation='softmax')(x)
     model = Model(i, x)
     model.compile(optimizer=Adam(learning_rate=0.001),
@@ -62,17 +74,39 @@ def build_dnn(input_shape, n_classes):
  
  
 def build_rnn(input_shape, n_classes):
+    """
+    Recurrent architecture with temporal pooling (LSTM-GMP).
+    Applies a sequence-returning LSTM layer (256 units), followed by a dense
+    projection (128 units, ReLU) and Global Max-Pooling over the temporal
+    dimension to aggregate salient activations across time steps.
+    """
     i = Input(shape=input_shape)
-    x = LSTM(256, return_sequences=True)(i)
-    x = Dense(128, activation='relu')(x)
-    x = GlobalMaxPooling1D()(x)
+
+    x = SimpleRNN(256)(i)
+    x = Dropout(0.2)(x)
+
+    x = Dense(64, activation='relu')(x)
+    x = Dropout(0.2)(x)
+    
     x = Dense(n_classes, activation='softmax')(x)
+
     model = Model(i, x)
-    model.compile(optimizer=Adam(learning_rate=0.001),
-                  loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
+    model.compile(
+        optimizer=Adam(learning_rate=0.001),
+        loss='sparse_categorical_crossentropy',
+        metrics=['accuracy']
+    )
+
     return model
 
+
 def build_lstm(input_shape, n_classes):
+    """
+    Standard sequential recurrent architecture (LSTM-LastState).
+    Relying on the final hidden state of a 128-unit standard LSTM layer,
+    followed by dropout regularization (0.2) and fully connected layers.
+    """
     i = Input(shape=input_shape)
 
     x = LSTM(128)(i)
@@ -253,7 +287,11 @@ def prepare_input(X, model_name):
 def standardize_data(model_name, X_train, X_test):
     scaler = StandardScaler()
     
-    if model_name in ["cnn", "deepconv_lstm", "astar_har"]:
+    if model_name == "dnn":
+        x_train = scaler.fit_transform(X_train)
+        x_test = scaler.transform(X_test)
+
+    elif model_name in ["cnn", "deepconv_lstm", "astar_har"]:
         n_train, T, F, Ch = X_train.shape
         n_test = X_test.shape[0]
 
@@ -302,7 +340,10 @@ def standardize_data(model_name, X_train, X_test):
 
 
 def apply_standardize(model_name, X, scaler):
-    if model_name in ["cnn", "deepconv_lstm", "astar_har"]:
+    if model_name == "dnn":
+        return scaler.transform(X)
+
+    elif model_name in ["cnn", "deepconv_lstm", "astar_har"]:
         n, T, F, Ch = X.shape
 
         X_flat = X.reshape(-1, F)

@@ -5,6 +5,8 @@ from src.models.registry import get_model_class
 from sklearn.metrics import f1_score, accuracy_score
 from pathlib import Path
 
+from src.utils.evaluation import compute_fold_metrics
+
 from src.utils.cv import get_cv_splitter
 from src.utils.reproducibility import (
     DEFAULT_SEED,
@@ -164,6 +166,12 @@ def run_model(data_name, config_data, model_name, config_model, max_subjects=Non
         y_test_decoded = le.inverse_transform(y_test)
         y_pred_decoded = le.inverse_transform(y_pred)
 
+        metrics = compute_fold_metrics(
+            y_test, y_pred,
+            canonical_classes=list(range(len(le.classes_))),
+            zero_division=0,
+        )
+
         fold_result = {
             "fold_index": i,
             "cv_strategy": cv_name,
@@ -175,8 +183,10 @@ def run_model(data_name, config_data, model_name, config_model, max_subjects=Non
             "n_test": len(X_test),
             "y_true": y_test_decoded.tolist(),
             "y_pred": y_pred_decoded.tolist(),
-            "f1_macro": f1_score(y_test, y_pred, average="macro"),
-            "accuracy": accuracy_score(y_test, y_pred),
+            "f1_macro": metrics["f1_macro"],
+            "accuracy": metrics["accuracy"],
+            "present_classes": le.inverse_transform(metrics["present_classes"]).tolist(),
+            "f1_macro_canonical": metrics.get("f1_macro_canonical"),
             "training_time_sec": training_time_sec,
             "inference_time_sec": inference_time_sec,
             "inference_time_per_sample_ms": inference_time_per_sample_ms,

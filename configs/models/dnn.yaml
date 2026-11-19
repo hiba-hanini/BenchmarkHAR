@@ -1,5 +1,5 @@
 name: dnn
-params :
-  epochs: 5
+params:
+  epochs: 50
   batch_size: 64
   verbose: 0

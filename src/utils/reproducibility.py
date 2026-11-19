@@ -6,6 +6,8 @@ cannot change the hash randomisation of the current process. Set it before
 launching Python when that level of reproducibility is needed.
 """
 
+
+
 from __future__ import annotations
 
 import hashlib
@@ -52,6 +54,10 @@ def set_global_seed(seed: int, deterministic: bool = True) -> None:
     random.seed(seed)
     np.random.seed(seed)
 
+    try:
+        import triton
+    except ImportError:
+        pass
     try:
         import tensorflow as tf
     except ImportError:

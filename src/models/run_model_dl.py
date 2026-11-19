@@ -7,6 +7,8 @@ from sklearn.metrics import f1_score, accuracy_score
 from sklearn.model_selection import GroupShuffleSplit
 import pandas as pd
 
+from src.utils.evaluation import compute_fold_metrics
+
 from src.models.deep.architectures import prepare_input
 from src.models.deep.architectures import standardize_data, apply_standardize
 from src.models.registry import get_model_class
@@ -27,6 +29,10 @@ from src.preprocessing.mapping import (
     canonical_label_metadata,
     canonicalize_labels,
 )
+from src.dimension_reduction.correlation_filter import (
+    fit_correlation_selector,
+    transform_with_correlation_selector,
+)
 from src.utils.scientific_checks import (
     class_counts_for_labels,
     validate_fold_samples,
@@ -37,6 +43,43 @@ from src.utils.scientific_checks import (
 import joblib
 import time
 import psutil
+
+
+def _load_dnn_features(data_name, config_data, max_subjects=None):
+    features_path = Path(f"data/features/{data_name}_features_all.pkl")
+    if not features_path.exists():
+        raise FileNotFoundError(
+            f"Statistical feature cache not found: {features_path}. "
+            "Run feature extraction before training the DNN."
+        )
+
+    df = pd.read_pickle(features_path)
+    if max_subjects is not None:
+        selected_subjects = sorted(df["subject_id"].unique())[:int(max_subjects)]
+        df = df[df["subject_id"].isin(selected_subjects)].reset_index(drop=True)
+
+    drop_cols = ["subject_id"] + config_data["label_cols"]
+    missing_cols = set(drop_cols) - set(df.columns)
+    if missing_cols:
+        raise ValueError(f"Statistical feature cache is missing required columns: {sorted(missing_cols)}")
+
+    X = df.drop(columns=drop_cols)
+    if X.empty or X.shape[1] == 0:
+        raise ValueError(f"No statistical features found in {features_path}.")
+    y = df[config_data["label_to_predict"]].to_numpy()
+    groups = df["subject_id"].to_numpy()
+    return X, y, groups
+
+
+def _select_dnn_features(X_train, X_test, threshold):
+    selector = fit_correlation_selector(
+        X_train, list(X_train.columns), threshold=threshold,
+    )
+    X_train_selected = transform_with_correlation_selector(X_train, selector)
+    X_test_selected = transform_with_correlation_selector(X_test, selector)
+    if list(X_train_selected.columns) != list(X_test_selected.columns):
+        raise AssertionError("Train/test feature columns differ after correlation selection.")
+    return X_train_selected.to_numpy(), X_test_selected.to_numpy(), selector
 
 
 def _subject_level_inner_validation_split(train_subject_ids, validation_fraction=0.2, seed=DEFAULT_SEED):
@@ -90,11 +133,16 @@ def run_model_dl(data_name, config_data, model_name, config_model, max_subjects=
     if not model_manifest_path.exists():
         save_manifest(expected_model_manifest, model_manifest_path)
 
-    print(f"[LOAD] Windows : {data_name}...")
-    X, y, groups = _load_all_windows(config_data, max_subjects=max_subjects)
+    if model_name == "dnn":
+        print(f"[LOAD] Statistical features : {data_name}...")
+        X, y, groups = _load_dnn_features(data_name, config_data, max_subjects=max_subjects)
+    else:
+        print(f"[LOAD] Windows : {data_name}...")
+        X, y, groups = _load_all_windows(config_data, max_subjects=max_subjects)
     print(f"X shape: {X.shape} | y shape: {y.shape} | subjects: {len(np.unique(groups))}")
 
-    X = prepare_input(X, model_name)
+    if model_name != "dnn":
+        X = prepare_input(X, model_name)
     
     label_col = config_data["label_to_predict"]
     label_metadata = canonical_label_metadata(config_data, label_col)
@@ -130,7 +178,16 @@ def run_model_dl(data_name, config_data, model_name, config_model, max_subjects=
         test_subjects = np.unique(groups[test_idx])
         print(f"\n[{cv_name} {i+1}/{n_splits}] test_subjects={test_subjects}")
 
-        X_train, X_test = X[train_idx], X[test_idx]
+        if model_name == "dnn":
+            X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+            X_train, X_test, selector = _select_dnn_features(
+                X_train, X_test, config_data.get("correlation_threshold", 0.95),
+            )
+            if selector.n_fit_samples != len(train_idx):
+                raise AssertionError("Correlation selector was not fitted on exactly the training fold.")
+        else:
+            X_train, X_test = X[train_idx], X[test_idx]
+            selector = None
         canonical_y_train = canonical_y[train_idx]
         canonical_y_test = canonical_y[test_idx]
         train_subjects = sorted(np.unique(groups[train_idx]).tolist())
@@ -220,6 +277,7 @@ def run_model_dl(data_name, config_data, model_name, config_model, max_subjects=
         else :
             model_path = model_dir / f"fold_{i}.keras"
 
+        selector_path = model_dir / f"selected_features_fold_{i}.json"
         scaler_path = model_dir / f"scaler_fold_{i}.joblib"
         label_mapping_path = model_dir / f"label_mapping_fold_{i}.joblib"
         joblib.dump(scaler, scaler_path)
@@ -234,7 +292,19 @@ def run_model_dl(data_name, config_data, model_name, config_model, max_subjects=
         model = model_class(model_config)
 
         existing_manifest = load_manifest(model_manifest_path)
-        reuse_allowed = model_path.exists() and existing_manifest is not None and manifest_matches(existing_manifest, expected_model_manifest)
+        selector_matches = (
+            model_name != "dnn"
+            or (
+                selector_path.exists()
+                and json.loads(selector_path.read_text()) == list(selector.selected_feature_names)
+            )
+        )
+        reuse_allowed = (
+            model_path.exists()
+            and selector_matches
+            and existing_manifest is not None
+            and manifest_matches(existing_manifest, expected_model_manifest)
+        )
         try:
             tf.config.experimental.reset_memory_stats("GPU:0")
         except Exception:
@@ -293,6 +363,8 @@ def run_model_dl(data_name, config_data, model_name, config_model, max_subjects=
                 model.load(model_path)
             else:
                 model.save(model_path)
+            if model_name == "dnn":
+                selector_path.write_text(json.dumps(list(selector.selected_feature_names)))
             save_manifest(expected_model_manifest, model_manifest_path)
 
         start_inference = time.perf_counter()
@@ -316,6 +388,12 @@ def run_model_dl(data_name, config_data, model_name, config_model, max_subjects=
 
         train_class_counts = class_counts_for_labels(canonical_y_train_inner, label_metadata["class_ids"])
         test_class_counts = class_counts_for_labels(canonical_y_test, label_metadata["class_ids"])
+        metrics = compute_fold_metrics(
+            canonical_y_test, y_pred_canonical,
+            canonical_classes=label_metadata["class_ids"],
+            zero_division=0,
+        )
+
         fold_result = {
             "fold_index": i,
             "cv_strategy": cv_name,
@@ -328,13 +406,19 @@ def run_model_dl(data_name, config_data, model_name, config_model, max_subjects=
             "model_to_canonical": model_to_canonical,
             "n_train": len(X_train_inner),
             "n_test": len(X_test_scaled),
+            **(
+                {"selected_feature_names": list(selector.selected_feature_names)}
+                if selector is not None else {}
+            ),
             "train_class_counts": train_class_counts,
             "test_class_counts": test_class_counts,
             "validation_strategy": validation_strategy,
             "y_true": canonical_y_test.tolist(),
             "y_pred": y_pred_canonical.tolist(),
-            "f1_macro": f1_score(canonical_y_test, y_pred_canonical, average="macro"),
-            "accuracy": accuracy_score(canonical_y_test, y_pred_canonical),
+            "f1_macro": metrics["f1_macro"],
+            "accuracy": metrics["accuracy"],
+            "present_classes": metrics["present_classes"],
+            "f1_macro_canonical": metrics.get("f1_macro_canonical"),
             "training_time_sec": training_time_sec,
             "inference_time_sec": inference_time_sec,
             "inference_time_per_sample_ms": inference_time_per_sample_ms,
